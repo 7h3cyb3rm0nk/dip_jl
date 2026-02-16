@@ -105,6 +105,31 @@ let
 end
 
 # ╔═╡ 3575025c-5b7e-4f49-9291-764a210f09ea
+md"""
+# Contrast Stretching
+
+Contrast stretching (also called normalization) is a simple intensity transformation that expands the range of intensity values in an image to span a desired range, typically [0, 1].
+
+## Formula
+
+The transformation is:
+
+$$s = \frac{r - r_{min}}{r_{max} - r_{min}}$$
+
+Where:
+- ``r`` is the input pixel intensity
+- ``r_{min}`` and ``r_{max}`` are the minimum and maximum intensity values in the image
+- ``s`` is the output pixel intensity
+"""
+
+# ╔═╡ 3c33bda9-711b-4899-b49b-26d8b537a33b
+let 
+	img = testimage_dip3e("Fig0241(a)(einstein low contrast).tif")
+	arr = float(img)
+	min_r, max_r = minimum(arr), maximum(arr)
+	stretched = (arr .- min_r) ./ (max_r - min_r)
+	mosaicview(img, stretched, nrow=1, npad=4, fillvalue=Gray(0.5))
+end
 
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1511,6 +1536,7 @@ version = "17.7.0+0"
 # ╟─baf7937e-0da7-4d97-b5f7-a5e114208ff5
 # ╠═90ca0009-44dc-47e2-8d48-6b63f1c6b784
 # ╟─c7f7808e-a553-42b9-90b8-a6ba27fdbd41
-# ╠═3575025c-5b7e-4f49-9291-764a210f09ea
+# ╟─3575025c-5b7e-4f49-9291-764a210f09ea
+# ╠═3c33bda9-711b-4899-b49b-26d8b537a33b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
