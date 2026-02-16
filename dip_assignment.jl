@@ -57,12 +57,18 @@ Controls overall brightness and contrast using the exponent γ.
 
 """
 
+# ╔═╡ 8673d065-b606-42a0-8c9a-de05dc2ed6a7
+md"# Negative Transformation"
+
 # ╔═╡ 21c519a2-c0bb-40be-b069-8eaab3086714
 let
 	img = testimage_dip3e("Fig0304(a)(breast_digital_Xray).tif")
 	transformed = clamp.((1.0 .- img), 0.0, 1.0)
 	mosaicview(img, transformed, nrow=1, npadding=4, fillvalue=Gray(0.5))
 end
+
+# ╔═╡ 7f4e3ce2-3ef1-425a-a4f1-b3f01d7aa67a
+md"# Gamma Transformation"
 
 # ╔═╡ 00de7179-116b-42b1-ad69-862313f70da9
 md"""
@@ -73,13 +79,16 @@ md"""
 
 # ╔═╡ 2198ab6c-9477-4fd0-9237-9b20f3f6c212
 let
-	img         = testimage_dip3e("Fig0241(c)(einstein high contrast).tif")
+	img         = testimage_dip3e("Fig0310(b)(washed_out_pollen_image).tif")
 	gray_img    = Gray.(img)       
     arr         = Float64.(gray_img)
     transformed = clamp.( c_gamma .* (arr .^ γ), 0.0, 1.0)
     mosaicview(gray_img, transformed; nrow=1, npad=4, fillvalue=Gray(0.5))
 end
 
+
+# ╔═╡ baf7937e-0da7-4d97-b5f7-a5e114208ff5
+md"# Log Transformation"
 
 # ╔═╡ c7f7808e-a553-42b9-90b8-a6ba27fdbd41
 md"""
@@ -1494,9 +1503,12 @@ version = "17.7.0+0"
 # ╠═3a995b53-281a-4b6d-93b5-2859f20280c5
 # ╟─177b6015-6242-4b47-9e1e-06cfb20d8a5c
 # ╟─df9b1284-ea5a-4741-8c0b-6b604ec0719a
+# ╟─8673d065-b606-42a0-8c9a-de05dc2ed6a7
 # ╠═21c519a2-c0bb-40be-b069-8eaab3086714
+# ╟─7f4e3ce2-3ef1-425a-a4f1-b3f01d7aa67a
 # ╠═2198ab6c-9477-4fd0-9237-9b20f3f6c212
 # ╟─00de7179-116b-42b1-ad69-862313f70da9
+# ╟─baf7937e-0da7-4d97-b5f7-a5e114208ff5
 # ╠═90ca0009-44dc-47e2-8d48-6b63f1c6b784
 # ╟─c7f7808e-a553-42b9-90b8-a6ba27fdbd41
 # ╠═3575025c-5b7e-4f49-9291-764a210f09ea
