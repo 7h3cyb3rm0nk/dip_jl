@@ -28,6 +28,23 @@ using PlutoUI
 # ╔═╡ 88c3ef67-80ff-40cd-886a-25f60ad20783
 using Plots
 
+# ╔═╡ dda79e31-e6ba-4bd4-9484-b250aaa27374
+using ImageFiltering
+
+# ╔═╡ 3daffb13-39f6-4916-ab13-681ce9e52789
+using Statistics
+
+# ╔═╡ 909d955e-ec7b-4803-aab4-72d641b4012b
+md"""
+- run this command if these dependencies are not installed systemwide
+- It is better to use a sysimage with these dependencies using create_sysimage() from PackageCompiler julia package 
+```julia
+using Pkg
+Pkg.add(["Images", "TestImages", "PlutoUI", "Plots", "ImageFiltering"])
+```
+"""
+
+
 # ╔═╡ 177b6015-6242-4b47-9e1e-06cfb20d8a5c
 @bind string TextField(placeholder="enter the search term")
 
@@ -306,6 +323,7 @@ function correlation(img, kernel)
     
     for i in 1:rows
         for j in 1:cols
+			# extracting the (kr, kc) sized region (-1 for 1 indexing fix)
             region = padded[i:i+kr-1, j:j+kc-1]
             output[i,j] = sum(region .* kernel)
         end
@@ -320,6 +338,44 @@ function convolution(img, kernel)
     correlation(img, flipped_kernel)
 end
 
+# ╔═╡ 025fba60-451a-49c8-879a-2873eaad8d76
+function correlation_raw(img, kernel)
+    arr = float(img)
+    rows, cols = size(arr)
+    kr, kc = size(kernel)
+    
+    # padding size
+    pr = kr ÷ 2
+    pc = kc ÷ 2
+    
+    # pad the image with zeros
+    padded = zeros(rows + 2pr, cols + 2pc)
+    padded[pr+1:pr+rows, pc+1:pc+cols] = channelview(arr)
+    
+    output = zeros(rows, cols)
+    
+    for i in 1:rows
+        for j in 1:cols
+			# extracting the (kr, kc) sized region (-1 for 1 indexing fix)
+            region = padded[i:i+kr-1, j:j+kc-1]
+            output[i,j] = sum(region .* kernel)
+        end
+    end
+    
+    output
+end
+
+# ╔═╡ fb657a82-bea7-400c-a177-9dee49554ace
+function convolution_raw(img, kernel)
+    flipped_kernel = kernel[end:-1:1, end:-1:1]
+    correlation_raw(img, flipped_kernel)
+end
+
+# ╔═╡ 157898ac-eed0-4314-968e-fd909651c6c3
+md"""
+# Convolution and Correlation
+"""
+
 # ╔═╡ 344d4a82-16aa-4c98-ba1f-8617c81bf860
 
 let
@@ -329,23 +385,245 @@ let
 		1 1 1;
 	] .* -1
     img = testimage_dip3e("Fig0338(a)(blurry_moon).tif")
-    result = convolution(img, kernel)
-	result = img .+ result
-    mosaicview(img, result; nrow=1, npad=5, fillvalue=Gray(0.5))
+    convolution_output = convolution(img, kernel)
+	correlation_output = correlation(img, kernel)
+	p1 = plot(img, title="Original", axis=false, ticks=false)
+    p2 = plot(convolution_output, title="Convolution", axis=false, ticks=false)
+	p3 =  plot(correlation_output, title="Correlation", axis=false, ticks=false)
+	plot(p1, p2, p3; layout=(1,3))
 end
 
-# ╔═╡ 0ad9b551-f342-4b18-97db-eae556fee9fd
+# ╔═╡ 004e7f10-c0af-4d43-8102-6235bdc68412
+md"""
+# Smoothening Kernels
+"""
 
+# ╔═╡ c06adc8d-a628-4a65-ad6d-1f6e1c947e77
+md"""
+**``\sigma``** : $(@bind σ Slider(1:0.1:100, show_value=true))
+
+**n** : $(@bind n Slider(3:2:101, show_value=true))
+"""
+
+# ╔═╡ 0ad9b551-f342-4b18-97db-eae556fee9fd
+let
+	box_kernel = Kernel.box((n,n))
+	gaussian_kernel = Kernel.gaussian(σ)
+	img = testimage_dip3e("Fig0333(a)(test_pattern_blurring_orig).tif")
+
+	box_smoothened = imfilter(img, box_kernel)
+	gaussian_smoothened = imfilter(img, gaussian_kernel)
+	p1 = plot(img, title="Original", axis=false, ticks=false)
+	p2 = plot(box_smoothened, title="Box Smoothened", axis=false, ticks=false)
+	p3 = plot(gaussian_smoothened, title="Gaussian Smoothened", axis=false, ticks=false)
+	plot(p1, p2, p3; layout=(1,3), size=(800,300))
+end
+
+
+# ╔═╡ d0d2111e-a929-4d53-aace-0e0832653d61
+md"""
+# Order Static Median Filtering
+"""
+
+# ╔═╡ 9bfb466f-1d0e-49a7-869f-a6a1387e407f
+function median_filter( img, kernel_size)
+	arr = float(img)
+	rows, cols = size(img)
+	
+	pr = kernel_size ÷2
+
+	padded = zeros((2pr+rows, 2pr+cols))
+	output = zeros((rows, cols))
+	padded[pr+1:pr+rows, pr+1:pr+cols] = channelview(arr)
+
+	for i in 1:rows
+		for j in 1:cols
+			region = padded[i:i+kernel_size-1, j:j+kernel_size-1]
+			output[i, j] = median(vec(region))
+		end
+	end
+	return Gray{Float64}.(clamp.(output, 0.0, 1.0))
+	
+end
+
+# ╔═╡ 4ed06958-ad22-45d8-9769-e388bafed29e
+md"""
+**kernel_size**: $(@bind kernel_size_median_filter Slider(1:1:20, show_value=true))
+"""
+
+# ╔═╡ cf3cdf53-d4f8-4474-9525-52375e841b8b
+let
+	img = testimage_dip3e("Fig0335(a)(ckt_board_saltpep_prob_pt05).tif")
+	filtered_img = median_filter(img, kernel_size_median_filter)
+	mosaicview(img, filtered_img, nrow=1 , npad=4, fillvalue=Gray(0.5))
+end
+
+
+# ╔═╡ 22534f7e-0a2e-43ae-adaa-96da161f58fb
+md" # Max Filter"
+
+# ╔═╡ 53bd59ae-4c64-4ca4-ae1a-16cd0cd92c76
+function max_filter(img, kernel_size)
+	rows, cols = size(img)
+	arr = float(img)
+
+	pr = kernel_size ÷ 2
+	padded = zeros((2pr+ rows, 2pr+cols))
+	output = zeros((rows, cols))
+	padded[pr+1:pr+rows, pr+1:pr+cols] = channelview(arr)
+
+	for i in 1:rows
+		for j in 1:cols
+			region = padded[i:i+kernel_size-1, j:j+kernel_size-1]
+			output[i, j] = maximum(vec(region))
+		end
+	end
+	Gray{Float64}.(clamp.(output, 0.0, 1.0))
+end
+
+
+# ╔═╡ 728ebc55-613a-4904-aba8-edab6562864b
+md"""
+**kernel_size**: $(@bind max_filter_kernel_size Slider(1:1:20, show_value=true))
+"""
+
+# ╔═╡ 4f87bffb-0234-4d8a-ae35-ea3b8619606e
+let
+	img = testimage_dip3e("Fig0508(a)(circuit-board-pepper-prob-pt1).tif")
+	filtered_img = max_filter(img, max_filter_kernel_size)
+	mosaicview(img, filtered_img, npad=4, nrow=1, fillvalue=Gray(0.5))
+end
+
+
+# ╔═╡ 30a6b36c-9392-4db0-b891-7707d8e38ce8
+md" # Min Filtering"
+
+# ╔═╡ 7759d73d-acc8-418e-ba92-c329a59f9512
+function min_filter(img, kernel_size)
+	rows, cols = size(img)
+	arr = float(img)
+
+	pr = kernel_size ÷ 2
+	padded = zeros((2pr+ rows, 2pr+cols))
+	output = zeros((rows, cols))
+	padded[pr+1:pr+rows, pr+1:pr+cols] = channelview(arr)
+
+	for i in 1:rows
+		for j in 1:cols
+			region = padded[i:i+kernel_size-1, j:j+kernel_size-1]
+			output[i, j] = minimum(vec(region))
+		end
+	end
+	Gray{Float64}.(clamp.(output, 0.0, 1.0))
+end
+
+
+# ╔═╡ 813048ab-3034-49eb-930b-fe8f2b058264
+md"""
+**kernel_size**: $(@bind min_filter_kernel_size Slider(1:1:20, show_value=true))
+"""
+
+# ╔═╡ 367fbcc8-a025-49f1-b703-aaafe2a10878
+let
+	img = testimage_dip3e("Fig0508(b)(circuit-board-salt-prob-pt1).tif")
+	filtered_img = min_filter(img, min_filter_kernel_size)
+	mosaicview(img, filtered_img, npad=4, nrow=1, fillvalue=Gray(0.5))
+end
+	
+
+# ╔═╡ e6363873-9d5d-44df-b2f7-78fae6271a86
+md"""
+# Laplacian Filtering
+"""
+
+
+# ╔═╡ fad0d6a7-5f7b-442a-ac6f-a1f05aafca0b
+md"""
+**kernel_type:** $(@bind laplacian_kernel_type Select(["4-connectivity", "8-connectivity"]))
+"""
+
+# ╔═╡ e6b70eff-0cbb-4620-8d7b-27277539fb87
+let
+	
+	laplacian_kernel = if laplacian_kernel_type == "4-connectivity"
+		[0  1  0;
+         1 -4  1;
+         0  1  0]
+    else
+        [1  1  1;
+         1 -8  1;
+         1  1  1]
+    end
+	
+	img = testimage_dip3e("Fig0338(a)(blurry_moon).tif")
+	mask = convolution_raw(img, laplacian_kernel)
+	sharpened_img = img .- mask
+	mosaicview(img, sharpened_img, nrow=1, npad=4, fillvalue=Gray(0.5))
+end
+
+# ╔═╡ 4bc093ae-6bd1-4aa1-b360-40bf6a549a40
+md"""
+# First Order Derivative filtering (Sobel filter)
+"""
+
+# ╔═╡ 5e0b6813-5066-4c7b-8a0d-00e9112cd2dc
+let
+	img = testimage_dip3e("Fig0343(a)(skeleton_orig).tif")
+	sobel_filter_x = [
+		-1 -2 -1;
+		 0  0  0;
+		 1  2  1;]
+
+	sobel_filter_y = [
+		-1  0  1;
+		-2  0  2;
+		-1  0  1;
+	]
+
+	∂x= correlation_raw(img, sobel_filter_x)
+	∂y = correlation_raw(img, sobel_filter_y)
+	magnitude = sqrt.(∂x.^2 .+ ∂y.^2)
+	magnitude = magnitude ./ maximum(magnitude)
+	
+	gx_img  = Gray{Float64}.(clamp.(∂x ./ maximum(abs.(∂x)), 0.0, 1.0))
+    gy_img  = Gray{Float64}.(clamp.(∂y ./ maximum(abs.(∂y)), 0.0, 1.0))
+    mag_img = Gray{Float64}.(magnitude)
+	sharpened_img = img .+ mag_img
+
+	mosaicview(img, sharpened_img, gx_img, gy_img, mag_img ; nrow=2, npad=5, fillvalue=Gray(0.5))
+
+	p1 = heatmap(channelview(img),title="Original",         
+		color=:grays, axis=false, ticks=false, yflip=true, aspect_ratio=1)
+  
+	p2 = heatmap(channelview(gx_img),    title="Gx (vertical edges)",   			      color=:grays, axis=false, ticks=false, yflip=true, aspect_ratio=1)
+   
+	p3 = heatmap(channelview(gy_img),title="Gy (horizontal edges)", 
+		color=:grays, axis=false, ticks=false, yflip=true, aspect_ratio=1)
+   
+	p4 = heatmap(channelview(mag_img),   title="Magnitude",
+	    color=:grays, axis=false, ticks=false, yflip=true, aspect_ratio=1)
+   
+	p5 = heatmap(channelview(sharpened_img), title="Sharpened",
+		color=:grays, axis=false, ticks=false, yflip=true, aspect_ratio=1)
+	
+
+    plot(p1, p2, p3, p4, p5; layout=(2,3), size=(900, 1000))
+	
+	
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TestImages = "5e47fb64-e119-507b-a336-dd2b206d9990"
 
 [compat]
+ImageFiltering = "~0.7.12"
 Images = "~0.26.2"
 Plots = "~1.41.6"
 PlutoUI = "~0.7.79"
@@ -358,7 +636,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "82c6bc82f9b9084c686138289bf89e3b4242a6a7"
+project_hash = "39037e36cda1e3a1b865eed597f8345978330ae6"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1923,9 +2201,9 @@ version = "0.11.3"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "28145feabf717c5d65c1d5e09747ee7b1ff3ed13"
+git-tree-sha1 = "9297459be9e338e546f5c4bedb59b3b5674da7f1"
 uuid = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
-version = "2.6.3"
+version = "2.6.2"
 
     [deps.StructUtils.extensions]
     StructUtilsMeasurementsExt = ["Measurements"]
@@ -2339,10 +2617,13 @@ version = "1.13.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─909d955e-ec7b-4803-aab4-72d641b4012b
 # ╠═714c7bd6-1547-11f1-b271-adfc1b18f476
 # ╠═1cb32135-ec94-4621-9ab4-8c14d625d004
 # ╠═c42e54b4-bce9-4a99-96e3-f5f2c82179d7
 # ╠═88c3ef67-80ff-40cd-886a-25f60ad20783
+# ╠═dda79e31-e6ba-4bd4-9484-b250aaa27374
+# ╠═3daffb13-39f6-4916-ab13-681ce9e52789
 # ╠═3a995b53-281a-4b6d-93b5-2859f20280c5
 # ╟─177b6015-6242-4b47-9e1e-06cfb20d8a5c
 # ╟─df9b1284-ea5a-4741-8c0b-6b604ec0719a
@@ -2350,7 +2631,7 @@ version = "1.13.0+0"
 # ╠═21c519a2-c0bb-40be-b069-8eaab3086714
 # ╟─7f4e3ce2-3ef1-425a-a4f1-b3f01d7aa67a
 # ╠═2198ab6c-9477-4fd0-9237-9b20f3f6c212
-# ╟─00de7179-116b-42b1-ad69-862313f70da9
+# ╠═00de7179-116b-42b1-ad69-862313f70da9
 # ╟─baf7937e-0da7-4d97-b5f7-a5e114208ff5
 # ╠═90ca0009-44dc-47e2-8d48-6b63f1c6b784
 # ╟─c7f7808e-a553-42b9-90b8-a6ba27fdbd41
@@ -2367,11 +2648,33 @@ version = "1.13.0+0"
 # ╠═b3b47028-42ac-42af-82b7-0232c3db680a
 # ╟─884767b5-fd38-4442-8aaa-8445f16099d9
 # ╠═95091ce3-b273-4f1e-a864-5ed386ba4bed
-# ╠═8871b9cd-b79c-4937-8e0d-55c233d7a538
+# ╟─8871b9cd-b79c-4937-8e0d-55c233d7a538
 # ╠═8ef0cb36-89e6-4077-a3a8-a00e4a055455
-# ╟─2a90de17-c251-4d96-9227-010f5fdc4420
-# ╟─1ae5349a-9973-45b7-99e1-e2d04930cfdc
+# ╠═2a90de17-c251-4d96-9227-010f5fdc4420
+# ╠═1ae5349a-9973-45b7-99e1-e2d04930cfdc
+# ╠═025fba60-451a-49c8-879a-2873eaad8d76
+# ╠═fb657a82-bea7-400c-a177-9dee49554ace
+# ╟─157898ac-eed0-4314-968e-fd909651c6c3
 # ╠═344d4a82-16aa-4c98-ba1f-8617c81bf860
+# ╟─004e7f10-c0af-4d43-8102-6235bdc68412
 # ╠═0ad9b551-f342-4b18-97db-eae556fee9fd
+# ╟─c06adc8d-a628-4a65-ad6d-1f6e1c947e77
+# ╟─d0d2111e-a929-4d53-aace-0e0832653d61
+# ╠═9bfb466f-1d0e-49a7-869f-a6a1387e407f
+# ╠═cf3cdf53-d4f8-4474-9525-52375e841b8b
+# ╟─4ed06958-ad22-45d8-9769-e388bafed29e
+# ╟─22534f7e-0a2e-43ae-adaa-96da161f58fb
+# ╠═53bd59ae-4c64-4ca4-ae1a-16cd0cd92c76
+# ╠═4f87bffb-0234-4d8a-ae35-ea3b8619606e
+# ╟─728ebc55-613a-4904-aba8-edab6562864b
+# ╟─30a6b36c-9392-4db0-b891-7707d8e38ce8
+# ╠═7759d73d-acc8-418e-ba92-c329a59f9512
+# ╠═367fbcc8-a025-49f1-b703-aaafe2a10878
+# ╟─813048ab-3034-49eb-930b-fe8f2b058264
+# ╠═e6363873-9d5d-44df-b2f7-78fae6271a86
+# ╠═e6b70eff-0cbb-4620-8d7b-27277539fb87
+# ╠═fad0d6a7-5f7b-442a-ac6f-a1f05aafca0b
+# ╠═4bc093ae-6bd1-4aa1-b360-40bf6a549a40
+# ╠═5e0b6813-5066-4c7b-8a0d-00e9112cd2dc
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
