@@ -51,32 +51,6 @@ Pkg.add(["Images", "TestImages", "PlutoUI", "Plots", "ImageFiltering"])
 # ╔═╡ 3a995b53-281a-4b6d-93b5-2859f20280c5
 filter( x -> contains(x, string), TestImages.remotefiles_dip3e) |> x -> foreach(println, x)
 
-# ╔═╡ df9b1284-ea5a-4741-8c0b-6b604ec0719a
-md"""
-## Intensity Transformations
-
-### Negative Transformation
-Formula: **s = L - 1 - r**
-
-### Log Transformation  
-Formula: **s = c · log(1 + r)**
-
-Maps a narrow range of dark input values to a wider range of output values. 
-Compresses bright values and expands dark values. 
-Ideal for images with a large dynamic range like Fourier spectrums where most values are too dark to see.
-- Higher **c** → stronger expansion of dark regions
-- Lower **c** → subtler effect
-
-### Gamma (Power Law) Transformation
-Formula: **s = c · rᵞ**
-
-Controls overall brightness and contrast using the exponent γ.
-- **γ < 1** → brightens the image, expands dark regions (used for dark/underexposed images)
-- **γ = 1** → no change
-- **γ > 1** → darkens the image, compresses bright regions (used for washed out images)
-
-"""
-
 # ╔═╡ 8673d065-b606-42a0-8c9a-de05dc2ed6a7
 md"# Negative Transformation"
 
@@ -127,16 +101,6 @@ end
 # ╔═╡ 3575025c-5b7e-4f49-9291-764a210f09ea
 md"""
 # Contrast Stretching
-
-## Formula
-
-The transformation is:
-
-$$s = \frac{r - r_{min}}{r_{max} - r_{min}}$$
-Where:
-- ``r`` is the input pixel intensity
-- ``r_{min}`` and ``r_{max}`` are the minimum and maximum intensity values in the image
-- ``s`` is the output pixel intensity
 """
 
 # ╔═╡ 3c33bda9-711b-4899-b49b-26d8b537a33b
@@ -329,46 +293,13 @@ function correlation(img, kernel)
         end
     end
     
-    Gray{Float64}.(clamp.(output, 0.0, 1.0))
+    output
 end
 
 # ╔═╡ 1ae5349a-9973-45b7-99e1-e2d04930cfdc
 function convolution(img, kernel)
     flipped_kernel = kernel[end:-1:1, end:-1:1]
     correlation(img, flipped_kernel)
-end
-
-# ╔═╡ 025fba60-451a-49c8-879a-2873eaad8d76
-function correlation_raw(img, kernel)
-    arr = float(img)
-    rows, cols = size(arr)
-    kr, kc = size(kernel)
-    
-    # padding size
-    pr = kr ÷ 2
-    pc = kc ÷ 2
-    
-    # pad the image with zeros
-    padded = zeros(rows + 2pr, cols + 2pc)
-    padded[pr+1:pr+rows, pc+1:pc+cols] = channelview(arr)
-    
-    output = zeros(rows, cols)
-    
-    for i in 1:rows
-        for j in 1:cols
-			# extracting the (kr, kc) sized region (-1 for 1 indexing fix)
-            region = padded[i:i+kr-1, j:j+kc-1]
-            output[i,j] = sum(region .* kernel)
-        end
-    end
-    
-    output
-end
-
-# ╔═╡ fb657a82-bea7-400c-a177-9dee49554ace
-function convolution_raw(img, kernel)
-    flipped_kernel = kernel[end:-1:1, end:-1:1]
-    correlation_raw(img, flipped_kernel)
 end
 
 # ╔═╡ 157898ac-eed0-4314-968e-fd909651c6c3
@@ -385,8 +316,8 @@ let
 		1 1 1;
 	] .* -1
     img = testimage_dip3e("Fig0338(a)(blurry_moon).tif")
-    convolution_output = convolution(img, kernel)
-	correlation_output = correlation(img, kernel)
+    convolution_output = Gray.(convolution(img, kernel))
+	correlation_output = Gray.(correlation(img, kernel))
 	p1 = plot(img, title="Original", axis=false, ticks=false)
     p2 = plot(convolution_output, title="Convolution", axis=false, ticks=false)
 	p3 =  plot(correlation_output, title="Correlation", axis=false, ticks=false)
@@ -442,7 +373,7 @@ function median_filter( img, kernel_size)
 			output[i, j] = median(vec(region))
 		end
 	end
-	return Gray{Float64}.(clamp.(output, 0.0, 1.0))
+	return Gray{Float64}.(output)
 	
 end
 
@@ -478,7 +409,7 @@ function max_filter(img, kernel_size)
 			output[i, j] = maximum(vec(region))
 		end
 	end
-	Gray{Float64}.(clamp.(output, 0.0, 1.0))
+	Gray{Float64}.(output)
 end
 
 
@@ -514,7 +445,7 @@ function min_filter(img, kernel_size)
 			output[i, j] = minimum(vec(region))
 		end
 	end
-	Gray{Float64}.(clamp.(output, 0.0, 1.0))
+	Gray{Float64}.(output)
 end
 
 
@@ -556,7 +487,7 @@ let
     end
 	
 	img = testimage_dip3e("Fig0338(a)(blurry_moon).tif")
-	mask = convolution_raw(img, laplacian_kernel)
+	mask = convolution(img, laplacian_kernel)
 	sharpened_img = img .- mask
 	mosaicview(img, sharpened_img, nrow=1, npad=4, fillvalue=Gray(0.5))
 end
@@ -580,8 +511,8 @@ let
 		-1  0  1;
 	]
 
-	∂x= correlation_raw(img, sobel_filter_x)
-	∂y = correlation_raw(img, sobel_filter_y)
+	∂x= correlation(img, sobel_filter_x)
+	∂y = correlation(img, sobel_filter_y)
 	magnitude = sqrt.(∂x.^2 .+ ∂y.^2)
 	magnitude = magnitude ./ maximum(magnitude)
 	
@@ -2626,7 +2557,6 @@ version = "1.13.0+0"
 # ╠═3daffb13-39f6-4916-ab13-681ce9e52789
 # ╠═3a995b53-281a-4b6d-93b5-2859f20280c5
 # ╟─177b6015-6242-4b47-9e1e-06cfb20d8a5c
-# ╟─df9b1284-ea5a-4741-8c0b-6b604ec0719a
 # ╟─8673d065-b606-42a0-8c9a-de05dc2ed6a7
 # ╠═21c519a2-c0bb-40be-b069-8eaab3086714
 # ╟─7f4e3ce2-3ef1-425a-a4f1-b3f01d7aa67a
@@ -2635,7 +2565,7 @@ version = "1.13.0+0"
 # ╟─baf7937e-0da7-4d97-b5f7-a5e114208ff5
 # ╠═90ca0009-44dc-47e2-8d48-6b63f1c6b784
 # ╟─c7f7808e-a553-42b9-90b8-a6ba27fdbd41
-# ╟─3575025c-5b7e-4f49-9291-764a210f09ea
+# ╠═3575025c-5b7e-4f49-9291-764a210f09ea
 # ╠═3c33bda9-711b-4899-b49b-26d8b537a33b
 # ╠═fe175197-fff2-4937-ba86-d71a2cf42f19
 # ╠═c2206524-53a3-459e-a581-ffc3b9c0f62e
@@ -2652,8 +2582,6 @@ version = "1.13.0+0"
 # ╠═8ef0cb36-89e6-4077-a3a8-a00e4a055455
 # ╠═2a90de17-c251-4d96-9227-010f5fdc4420
 # ╠═1ae5349a-9973-45b7-99e1-e2d04930cfdc
-# ╠═025fba60-451a-49c8-879a-2873eaad8d76
-# ╠═fb657a82-bea7-400c-a177-9dee49554ace
 # ╟─157898ac-eed0-4314-968e-fd909651c6c3
 # ╠═344d4a82-16aa-4c98-ba1f-8617c81bf860
 # ╟─004e7f10-c0af-4d43-8102-6235bdc68412
