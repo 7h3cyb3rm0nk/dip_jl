@@ -382,7 +382,7 @@ end
 
 # ╔═╡ 4ed06958-ad22-45d8-9769-e388bafed29e
 md"""
-**kernel_size**: $(@bind kernel_size_median_filter Slider(1:1:20, show_value=true))
+**kernel_size**: $(@bind kernel_size_median_filter Slider(3:2:21, show_value=true))
 """
 
 # ╔═╡ cf3cdf53-d4f8-4474-9525-52375e841b8b
@@ -418,7 +418,7 @@ end
 
 # ╔═╡ 728ebc55-613a-4904-aba8-edab6562864b
 md"""
-**kernel_size**: $(@bind max_filter_kernel_size Slider(1:1:20, show_value=true))
+**kernel_size**: $(@bind max_filter_kernel_size Slider(3:2:21, show_value=true))
 """
 
 # ╔═╡ 4f87bffb-0234-4d8a-ae35-ea3b8619606e
@@ -454,7 +454,7 @@ end
 
 # ╔═╡ 813048ab-3034-49eb-930b-fe8f2b058264
 md"""
-**kernel_size**: $(@bind min_filter_kernel_size Slider(1:1:20, show_value=true))
+**kernel_size**: $(@bind min_filter_kernel_size Slider(3:2:21, show_value=true))
 """
 
 # ╔═╡ 367fbcc8-a025-49f1-b703-aaafe2a10878
@@ -711,6 +711,101 @@ let
 	mosaicview(img, filtered, s_orig, s_filtered; nrow=2, npad=5,fillvalue=Gray(0.5))
 
     
+end
+
+# ╔═╡ ece43132-dd97-4055-a44a-b71296fdbe09
+md"""
+# ideal high pass filter
+"""
+
+
+# ╔═╡ 469c7cfc-c390-4e4f-8976-3672fe1e0a7b
+function ihpf_mask(rows,cols, cutoff)
+	mask = ilpf_mask(rows, cols, cutoff)
+	mask = 1 .- mask
+	mask
+end
+
+# ╔═╡ 6dbba3f5-795c-4acb-9cf5-6b3e9768ddbe
+md"""
+**cutoff**: $(@bind cutoff_ihpf Slider(10:0.1:255, show_value=true))
+"""
+
+# ╔═╡ c73b5bae-8cec-4b67-9af2-dad337edecee
+let 
+	img         = testimage("cameraman")
+    rows, cols  = size(channelview(float(img)))
+
+    hpf_mask    = ihpf_mask(rows, cols, cutoff_ihpf)
+    filtered    = freq_filter(img, hpf_mask)
+
+    s_orig      = Gray{Float64}.(spectrum(img))
+    s_filtered  = Gray{Float64}.(spectrum(filtered))
+
+    mosaicview(img, filtered, s_orig, s_filtered; nrow=2, npad=5, fillvalue=Gray(0.5))
+end
+
+# ╔═╡ 6e571a47-4258-4f74-af6f-17901b901453
+md"""
+# Gaussian High Pass filter
+"""
+
+# ╔═╡ 5cc725f5-4cc5-48af-92ac-c87dcd357b52
+function ghpf_mask(rows, cols, cutoff)
+	mask = glpf_mask(rows, cols, cutoff)
+	mask = 1 .- mask
+	mask
+end
+
+
+# ╔═╡ bd0736a7-c4fd-4a36-be29-b0d68c6a4686
+md"""
+**cutoff**: $(@bind cutoff_ghpf Slider(10:0.1:255, show_value=true))
+"""
+
+# ╔═╡ 0232defa-a594-418f-8e3f-17b8f5750706
+let 
+	img         = testimage("cameraman")
+    rows, cols  = size(channelview(float(img)))
+
+    hpf_mask    = ghpf_mask(rows, cols, cutoff_ghpf)
+    filtered    = freq_filter(img, hpf_mask)
+
+    s_orig      = Gray{Float64}.(spectrum(img))
+    s_filtered  = Gray{Float64}.(spectrum(filtered))
+
+    mosaicview(img, filtered, s_orig, s_filtered; nrow=2, npad=5, fillvalue=Gray(0.5))
+end
+
+# ╔═╡ dadb3dda-33bf-4ca9-be82-540fff25eb3d
+md" # butterworth high pass filter"
+
+# ╔═╡ 951a5d80-21bf-4a63-b6c2-0847cd85f1f5
+function bhpf_mask(rows,cols,cutoff, n)
+	mask = blpf_mask(rows, cols, cutoff, n)
+	mask =  1 .- mask 
+	mask
+end
+
+# ╔═╡ c6f2a61f-75ec-46c1-a5a0-879956c4f681
+md"""
+**cutoff**: $(@bind cutoff_bhpf Slider(10:0.1:255, show_value=true))
+
+**n**: $(@bind bhpf_n Slider(1:0.01:100, show_value=true))
+"""
+
+# ╔═╡ fc6781d0-3781-4a63-9000-0cf2c515fddb
+let 
+	img         = testimage("cameraman")
+    rows, cols  = size(channelview(float(img)))
+
+    hpf_mask    = bhpf_mask(rows, cols, cutoff_bhpf, bhpf_n)
+    filtered    = freq_filter(img, hpf_mask)
+
+    s_orig      = Gray{Float64}.(spectrum(img))
+    s_filtered  = Gray{Float64}.(spectrum(filtered))
+
+    mosaicview(img, filtered, s_orig, s_filtered; nrow=2, npad=5, fillvalue=Gray(0.5))
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -2772,10 +2867,10 @@ version = "1.13.0+0"
 # ╠═7759d73d-acc8-418e-ba92-c329a59f9512
 # ╠═367fbcc8-a025-49f1-b703-aaafe2a10878
 # ╟─813048ab-3034-49eb-930b-fe8f2b058264
-# ╠═e6363873-9d5d-44df-b2f7-78fae6271a86
+# ╟─e6363873-9d5d-44df-b2f7-78fae6271a86
 # ╠═e6b70eff-0cbb-4620-8d7b-27277539fb87
-# ╠═fad0d6a7-5f7b-442a-ac6f-a1f05aafca0b
-# ╠═4bc093ae-6bd1-4aa1-b360-40bf6a549a40
+# ╟─fad0d6a7-5f7b-442a-ac6f-a1f05aafca0b
+# ╟─4bc093ae-6bd1-4aa1-b360-40bf6a549a40
 # ╠═5e0b6813-5066-4c7b-8a0d-00e9112cd2dc
 # ╟─48ccbf31-6ac9-4f2b-9a46-1de4c33b651a
 # ╠═25b5c7d7-6aaa-4f76-8af3-bf0074a1652a
@@ -2792,5 +2887,17 @@ version = "1.13.0+0"
 # ╠═4c722414-5bbc-47ac-ac36-3af45eabc2d4
 # ╠═41d3462d-eb07-4521-b620-e0dd344bd485
 # ╟─d3ad8dd1-5fee-4c87-a357-538f0542fec7
+# ╟─ece43132-dd97-4055-a44a-b71296fdbe09
+# ╠═469c7cfc-c390-4e4f-8976-3672fe1e0a7b
+# ╠═c73b5bae-8cec-4b67-9af2-dad337edecee
+# ╟─6dbba3f5-795c-4acb-9cf5-6b3e9768ddbe
+# ╟─6e571a47-4258-4f74-af6f-17901b901453
+# ╠═5cc725f5-4cc5-48af-92ac-c87dcd357b52
+# ╠═0232defa-a594-418f-8e3f-17b8f5750706
+# ╟─bd0736a7-c4fd-4a36-be29-b0d68c6a4686
+# ╟─dadb3dda-33bf-4ca9-be82-540fff25eb3d
+# ╠═951a5d80-21bf-4a63-b6c2-0847cd85f1f5
+# ╠═fc6781d0-3781-4a63-9000-0cf2c515fddb
+# ╟─c6f2a61f-75ec-46c1-a5a0-879956c4f681
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
