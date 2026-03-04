@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DFT in Image Processing — Pluto Notebooks</title>
+  <link href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:         #1a1a2e;
+      --surface:    #16213e;
+      --card:       #0f3460;
+      --card-hover: #1a4a7a;
+      --pluto-red:  #e94560;
+      --pluto-pink: #f5a7b8;
+      --pluto-blue: #4cc9f0;
+      --pluto-teal: #4ade80;
+      --text:       #e2e8f0;
+      --muted:      #94a3b8;
+      --border:     rgba(76, 201, 240, 0.2);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Vollkorn', Georgia, serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── animated background grid ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(76,201,240,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(76,201,240,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── sine wave SVG header decoration ── */
+    .wave-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wave-bg svg {
+      position: absolute;
+      bottom: -2px;
+      width: 100%;
+    }
+
+    /* ── hero header ── */
+    header {
+      position: relative;
+      padding: 72px 40px 80px;
+      text-align: center;
+      background: linear-gradient(180deg, #0d1b3e 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .pluto-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--pluto-blue);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    .pluto-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--pluto-red);
+      box-shadow: 0 0 12px var(--pluto-red);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%       { transform: scale(1.4); opacity: 0.7; }
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 600;
+      line-height: 1.15;
+      color: var(--text);
+      opacity: 0;
+      animation: fadeUp 0.6s 0.15s ease forwards;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--pluto-blue);
+    }
+
+    .subtitle {
+      margin-top: 16px;
+      font-size: 1.15rem;
+      color: var(--muted);
+      font-style: italic;
+      opacity: 0;
+      animation: fadeUp 0.6s 0.3s ease forwards;
+    }
+
+    .header-tags {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 28px;
+      opacity: 0;
+      animation: fadeUp 0.6s 0.45s ease forwards;
+    }
+
+    .tag {
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      border: 1px solid;
+    }
+
+    .tag-blue  { color: var(--pluto-blue);  border-color: var(--pluto-blue);  background: rgba(76,201,240,0.08); }
+    .tag-red   { color: var(--pluto-red);   border-color: var(--pluto-red);   background: rgba(233,69,96,0.08); }
+    .tag-green { color: var(--pluto-teal);  border-color: var(--pluto-teal);  background: rgba(74,222,128,0.08); }
+
+    /* ── main content ── */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--pluto-blue);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── notebook cards ── */
+    .notebooks {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 24px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      opacity: 0;
+      animation: fadeUp 0.5s ease forwards;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--pluto-red), var(--pluto-blue));
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(76,201,240,0.5);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(76,201,240,0.15);
+    }
+
+    .card:hover::before { opacity: 1; }
+
+    .card-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--pluto-red);
+      letter-spacing: 0.1em;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 0.92rem;
+      color: var(--muted);
+      font-style: italic;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .card-concepts {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(76,201,240,0.1);
+      color: var(--pluto-blue);
+      letter-spacing: 0.06em;
+    }
+
+    .open-arrow {
+      color: var(--pluto-blue);
+      font-size: 1.1rem;
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover .open-arrow { transform: translateX(4px); }
+
+    /* stagger card animations */
+    .card:nth-child(1) { animation-delay: 0.1s; }
+    .card:nth-child(2) { animation-delay: 0.2s; }
+    .card:nth-child(3) { animation-delay: 0.3s; }
+    .card:nth-child(4) { animation-delay: 0.4s; }
+    .card:nth-child(5) { animation-delay: 0.5s; }
+    .card:nth-child(6) { animation-delay: 0.6s; }
+
+    /* ── info bar ── */
+    .info-bar {
+      margin-top: 52px;
+      padding: 20px 24px;
+      background: rgba(15, 52, 96, 0.5);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.7;
+      opacity: 0;
+      animation: fadeUp 0.6s 0.7s ease forwards;
+    }
+
+    .info-icon {
+      font-size: 1.3rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .info-bar code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: rgba(76,201,240,0.12);
+      color: var(--pluto-blue);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* ── footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      border-top: 1px solid var(--border);
+      opacity: 0;
+      animation: fadeUp 0.6s 0.8s ease forwards;
+    }
+
+    footer a {
+      color: var(--pluto-blue);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wave-bg">
+    <svg viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,60 C180,100 360,20 540,60 C720,100 900,20 1080,60 C1260,100 1350,40 1440,60 L1440,120 L0,120 Z"
+            fill="rgba(76,201,240,0.04)"/>
+      <path d="M0,80 C120,40 240,100 360,70 C480,40 600,90 720,70 C840,50 960,90 1080,70 C1200,50 1320,80 1440,60 L1440,120 L0,120 Z"
+            fill="rgba(233,69,96,0.03)"/>
+    </svg>
+  </div>
+
+  <div class="pluto-logo">
+    <span class="pluto-dot"></span>
+    Pluto.jl · Interactive Notebooks
+  </div>
+
+  <h1>Notebooks<br/>for <em>Digital Image Processing</em></h1>
+  <p class="subtitle">An interactive journey from pixels to the frequency domain</p>
+
+  <div class="header-tags">
+    <span class="tag tag-blue">Julia</span>
+    <span class="tag tag-red">FFTW.jl</span>
+    <span class="tag tag-green">Interactive</span>
+    <span class="tag tag-blue">Signal Processing</span>
+    <span class="tag tag-red">Image Processing</span>
+  </div>
+</header>
+
+<main>
+  <div class="section-label">notebooks</div>
+
+  <div class="notebooks">
+
+<a class="card" href="dft_notebook.html">
+  <div class="card-number">01</div>
+  <div class="card-title">DFT Recording</div>
+  <div class="card-desc">
+    An interactive journey through the frequency domain — sinusoidal waves, basis functions, the sieving process, and full 2D FFT on the cameraman image.
+  </div>
+  <div class="card-footer">
+    <div class="card-concepts">
+      <span class="chip">frequency domain</span>
+      <span class="chip">sieving</span>
+      <span class="chip">FFT</span>
+    </div>
+    <span class="open-arrow">→</span>
+  </div>
+</a>
+
+<a class="card" href="dip.html">
+  <div class="card-number">02</div>
+  <div class="card-title">DIP Assignment</div>
+  <div class="card-desc">
+    Digital Image Processing assignment notebook — applying DFT concepts to image analysis, filtering, and frequency domain operations.
+  </div>
+  <div class="card-footer">
+    <div class="card-concepts">
+      <span class="chip">filtering</span>
+      <span class="chip">image analysis</span>
+      <span class="chip">DFT</span>
+    </div>
+    <span class="open-arrow">→</span>
+  </div>
+</a>
+
+    
+  
+  </div>
+
+  <div class="info-bar">
+    <span class="info-icon">💡</span>
+    <span>
+      Each card links to a static HTML export of the corresponding Pluto notebook.
+      For <strong>full interactivity</strong> with live sliders, open the <code>.jl</code> files
+      in <a href="https://plutojl.org" style="color:var(--pluto-blue)">Pluto.jl</a> 
+    </span>
+  </div>
+</main>
+
+<footer>
+  built with <a href="https://plutojl.org">Pluto.jl</a> · Julia · FFTW.jl
+</footer>
+
+</body>
+</html>
